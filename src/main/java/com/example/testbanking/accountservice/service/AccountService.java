@@ -12,4 +12,5 @@ public interface AccountService {
     BalanceResponse getBalance(Long userId, String accountNumber);
     TransactionResponse transfer(Long userId, TransferRequest request, String idempotencyKey);
     TransactionResponse deposit(Long userId, DepositRequest request, String idempotencyKey);
+    TransactionResponse withdraw(Long userId, WithdrawRequest request, String idempotencyKey);
 }

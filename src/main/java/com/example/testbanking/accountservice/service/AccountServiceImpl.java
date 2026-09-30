@@ -180,6 +180,39 @@ public class AccountServiceImpl implements AccountService {
         return mapToTransactionResponse(savedTx);
     }
 
+    @Override
+    @Transactional
+    @CacheEvict(value = "accounts", key = "#request.accountNumber")
+    public TransactionResponse withdraw(Long userId, WithdrawRequest request, String idempotencyKey) {
+        final BankAccount account = accountRepository.findByAccountNumberWithLock(request.getAccountNumber())
+                .orElseThrow(() -> new BankingException(ErrorCode.ACCOUNT_NOT_FOUND, request.getAccountNumber()));
+
+        validateAccountOwnership(account, userId);
+
+        final BigDecimal withdrawAmount = request.getAmount()
+                .setScale(account.getCurrency().getDefaultFractionDigits(), RoundingMode.HALF_EVEN);
+
+        if (account.getBalance().compareTo(withdrawAmount) < 0) {
+            throw new BankingException(ErrorCode.INSUFFICIENT_FUNDS, account.getAccountNumber());
+        }
+
+        account.setBalance(account.getBalance().subtract(withdrawAmount));
+        accountRepository.save(account);
+
+        final Transaction transaction = Transaction.builder()
+                .sourceAccountNumber(account.getAccountNumber())
+                .targetAccountNumber(AccountConstants.SYSTEM_ACCOUNT_WITHDRAWAL)
+                .amount(withdrawAmount)
+                .currency(account.getCurrency())
+                .status(TransactionStatus.SUCCESS)
+                .build();
+        final Transaction savedTx = transactionRepository.save(transaction);
+
+        publishTransactionEvent(savedTx);
+
+        return mapToTransactionResponse(savedTx);
+    }
+
     private void validateAccountOwnership(BankAccount account, Long userId) {
         if (!account.getUserId().equals(userId)) {
             throw new BankingException(ErrorCode.ACCOUNT_ACCESS_DENIED);

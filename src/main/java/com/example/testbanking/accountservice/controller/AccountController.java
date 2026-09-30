@@ -71,4 +71,14 @@ public class AccountController {
         final TransactionResponse response = accountService.deposit(user.getId(), request, idempotencyKey);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/withdraw")
+    public ResponseEntity<TransactionResponse> withdraw(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody WithdrawRequest request) {
+
+        TransactionResponse response = accountService.withdraw(user.getId(), request, idempotencyKey);
+        return ResponseEntity.ok(response);
+    }
 }
